@@ -1,10 +1,10 @@
-import * as contactsService from '../models/contacts.js';
+import Contact from '../models/Contact.js';
 
 import { HttpError } from '../helpers/index.js';
 import { ctrlWrapper } from '../decorators/index.js';
 
 const getContactsList = async (req, res) => {
-  const result = await contactsService.listContacts();
+  const result = await Contact.find();
   res.json(result);
 };
 // якщо виникає помилка в середині try, вона потрапляє в catch.
@@ -14,10 +14,10 @@ const getContactsList = async (req, res) => {
 
 const getById = async (req, res) => {
   const { id } = req.params;
-
-  const result = await contactsService.getContactById(id);
+  // onst result = await Contact.findOne({_id: id}); це пошук за параметрами!
+  const result = await Contact.findById(id);
   if (!result) {
-    throw HttpError(404, `Contact with ${id} not found`);
+    throw HttpError(404, `Contact with ${id} is not found`);
   }
   res.json(result);
 };
@@ -26,7 +26,7 @@ const addNewContact = async (req, res) => {
   // 1.Перевіряється чи тіло реквеста не пусте isEmptyBody
   // 2. перед додаванням, перевіряється на наявність обовʼязкових параметрів у тілі запиту відповідно до схеми
   // 3. до контроллера дійде черга, лише тоді коли тіло запиту буде відповідати схемі і не буде ніяких помилок
-  const result = await contactsService.addContact(req.body);
+  const result = await Contact.create(req.body);
   res.status(201).json(result);
 };
 
@@ -35,7 +35,24 @@ const updateById = async (req, res) => {
   // 2. перед додаванням, перевіряється на наявність обовʼязкових параметрів у тілі запиту відповідно до схеми
   // 3. до контроллера дійде черга, лтше тоді коли тіло запиту буде відповідати схемі і не буде ніяких помилок
   const { id } = req.params;
-  const result = await contactsService.updateContactById(id, req.body);
+  const result = await Contact.findByIdAndUpdate(id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (!result) {
+    throw HttpError(404, `Contact with ${id} not found`);
+  } // якщо повернеться null, то викидуємо 404 помилку
+
+  res.status(201).json(result);
+};
+
+const updateFavotiteById = async (req, res) => {
+  const { id } = req.params;
+  const result = await Contact.findByIdAndUpdate(id, req.body, {
+    new: true,
+    runValidators: true,
+  });
 
   if (!result) {
     throw HttpError(404, `Contact with ${id} not found`);
@@ -47,7 +64,7 @@ const updateById = async (req, res) => {
 const removeById = async (req, res) => {
   const { id } = req.params;
 
-  const result = await contactsService.removeContact(id);
+  const result = await Contact.findByIdAndDelete(id);
   if (!result) {
     throw HttpError(404, `Contact with ${id} not found`);
   }
@@ -60,5 +77,6 @@ export default {
   getById: ctrlWrapper(getById),
   addNewContact: ctrlWrapper(addNewContact),
   updateById: ctrlWrapper(updateById),
+  updateFavotiteById: ctrlWrapper(updateFavotiteById),
   removeById: ctrlWrapper(removeById),
 };
