@@ -6,8 +6,6 @@ import { mongoose } from 'mongoose';
 
 // console.log(process.env);
 
-// PASSWORD: dRs7ROJfFwiOm6HS
-
 const { DB_HOST, PORT = 3000 } = process.env;
 
 mongoose

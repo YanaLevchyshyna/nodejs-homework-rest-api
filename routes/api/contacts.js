@@ -1,6 +1,10 @@
 import express from 'express';
 import contactsController from '../../controllers/contacts-controller.js';
-import { isEmptyBody, isValidId } from '../../middlewares/index.js';
+import {
+  isEmptyBody,
+  isValidId,
+  authenticate,
+} from '../../middlewares/index.js';
 import { validateBody } from '../../decorators/index.js';
 import {
   contactAddSchema,
@@ -13,6 +17,8 @@ const contactAddValidate = validateBody(contactAddSchema);
 const contactUpdateFavoriteValidate = validateBody(contactUpdateFavoriteSchema);
 
 const contactsRouter = express.Router();
+
+contactsRouter.use(authenticate); // застосовуємо мідлвару authenticate до всіх шляхів contactsRouter
 
 contactsRouter.get('/', contactsController.getContactsList);
 
