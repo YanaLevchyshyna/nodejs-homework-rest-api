@@ -1,6 +1,6 @@
 import express from 'express';
 import authController from '../../controllers/auth-controller.js';
-import { authenticate, isEmptyBody } from '../../middlewares/index.js';
+import { authenticate, upload, isEmptyBody } from '../../middlewares/index.js';
 import { validateBody } from '../../decorators/index.js';
 import { userSignupSchema, userSigninSchema } from '../../models/User.js';
 
@@ -21,6 +21,13 @@ authRouter.post(
   isEmptyBody,
   userSigninValidate,
   authController.signin
+);
+
+authRouter.patch(
+  '/users/avatars',
+  authenticate,
+  upload.single('avatarURL'),
+  authController.createAvatar
 );
 
 authRouter.get('/users/current', authenticate, authController.getCurrent);

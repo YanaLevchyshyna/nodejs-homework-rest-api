@@ -7,7 +7,7 @@ import User from '../models/User.js';
 dotenv.config(); // Завантажити змінні середовища з файлу .env
 
 const { JWT_SECRET } = process.env;
-console.log('JWT_SECRET:', JWT_SECRET);
+// console.log('JWT_SECRET:', JWT_SECRET);
 
 const authenticate = async (req, res, next) => {
   const { authorization } = req.headers;
