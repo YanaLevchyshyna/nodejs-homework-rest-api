@@ -5,8 +5,9 @@ import Jimp from 'jimp';
 import fs from 'fs/promises';
 import path from 'path';
 import User from '../models/User.js';
-import { HttpError } from '../helpers/index.js';
+import { HttpError, sendEmail } from '../helpers/index.js';
 import { ctrlWrapper } from '../decorators/index.js';
+import { nanoid } from 'nanoid';
 
 const avatarPath = path.resolve('public', 'avatars');
 // console.log('avatarPath', avatarPath);
@@ -14,7 +15,7 @@ const avatarPath = path.resolve('public', 'avatars');
 import dotenv from 'dotenv';
 dotenv.config(); // Завантажити змінні середовища з файлу .env
 
-const { JWT_SECRET } = process.env;
+const { JWT_SECRET, BASE_URL } = process.env;
 // console.log('JWT_SECRET:', JWT_SECRET);
 // console.log('process.env :', process.env);
 
@@ -25,11 +26,12 @@ const signup = async (req, res) => {
   // перевіряємо чи в базі такий user по email
   const user = await User.findOne({ email });
   if (user) {
-    throw HttpError(409, `Email ${email} is used.`);
+    throw HttpError(409, `${email} is already in use.`);
   }
 
   // перед збереженням користувача, спочатку хешуємо пароль
   const hashPassword = await bcrypt.hash(password, 10);
+  const verificationToken = nanoid();
 
   const normilizedEmail = email.toLowerCase().trim();
   const unSecureUrl = gravatar.url(normilizedEmail, {
@@ -40,10 +42,64 @@ const signup = async (req, res) => {
     ...req.body,
     password: hashPassword,
     avatarURL: unSecureUrl,
+    verificationToken,
   });
+
+  const verifyEmail = {
+    to: email,
+    subject: 'Verify Email',
+    html: `<a target="blank" href="${BASE_URL}/verify/${verificationToken}">Click here to verify!</a>`,
+  };
+
+  await sendEmail(verifyEmail);
+
   res.status(201).json({
     username: newUser.username,
     email: newUser.email,
+  });
+};
+
+const verify = async (req, res) => {
+  const { verificationToken } = req.params;
+  const user = await User.findOne({ verificationToken });
+
+  if (!user) {
+    throw HttpError(404, 'User is not found.');
+  }
+
+  await User.findByIdAndUpdate(user._id, {
+    verify: true,
+    verificationToken: null,
+  });
+  // тобто коли юзер перейшов за адресою верифікації, обнуляємо verificationToken щоб критстувач більше не міг знову його підтвердити
+
+  res.status(200).json({
+    message: 'Verification is successful.',
+  });
+};
+
+// У випадку якщо з першрго разу верифікаційний лист не прийшов, то відправляємо вдруге resendVerify
+const resendVerify = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    400, 'Missing required field email.';
+  }
+
+  if (user.verify) {
+    throw HttpError(400, 'Verification has already been passed.');
+  }
+  const verifyEmail = {
+    to: email,
+    subject: 'Verify Email',
+    html: `<a target="blank" href="${BASE_URL}/verify/${user.verificationToken}">Click here to verify!</a>`,
+  };
+
+  await sendEmail(verifyEmail);
+
+  res.json({
+    message: 'Verification email has been sent.',
   });
 };
 
@@ -53,6 +109,10 @@ const signin = async (req, res) => {
   const user = await User.findOne({ email });
   if (!user) {
     throw HttpError(401, 'Email or password is wrong');
+  }
+
+  if (!user.verify) {
+    throw HttpError(401, 'Email is not verified');
   }
 
   // порівнюємо чи співпадає пароль який ввів юзер із паролем який є у базі
@@ -126,6 +186,8 @@ const createAvatar = async (req, res) => {
 
 export default {
   signup: ctrlWrapper(signup),
+  verify: ctrlWrapper(verify),
+  resendVerify: ctrlWrapper(resendVerify),
   signin: ctrlWrapper(signin),
   getCurrent: ctrlWrapper(getCurrent),
   logout: ctrlWrapper(logout),
